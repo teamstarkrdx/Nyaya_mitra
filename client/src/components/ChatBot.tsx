@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Bot, Send, X, Mic, Copy, Star, Trash2, Languages, Check } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 const languages = [
   { code: "en", name: "English", native: "English" },
@@ -28,15 +29,22 @@ interface Message {
   feedback?: { rating: number; comment?: string };
 }
 
-export default function ChatBot() {
+const ChatBot = forwardRef<{ openChat: () => void }>((props, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    openChat: () => {
+      setIsOpen(true);
+    }
+  }));
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -53,8 +61,8 @@ export default function ChatBot() {
     }]);
   };
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || isSending) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -64,18 +72,35 @@ export default function ChatBot() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = input;
     setInput("");
+    setIsSending(true);
 
-    // Mock AI response (todo: remove mock functionality - replace with OpenAI API)
-    setTimeout(() => {
+    try {
+      const res = await apiRequest("POST", "/api/legal-chat", { 
+        message: currentInput,
+        language: selectedLanguage || "en"
+      });
+      const data = await res.json() as { response: string };
+
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: `**At-a-Glance Summary:**\nThis query relates to ${input.toLowerCase().includes('ipc') ? 'criminal law' : 'civil matters'} under Indian legislation.\n\n**Detailed Analysis:**\nBased on your query, the relevant provisions are:\n• Specific legal sections and articles applicable\n• Penalties and consequences under the law\n• Rights and remedies available\n\n**Recommended Steps:**\n1. Consult with a qualified legal professional\n2. Gather relevant documentation\n3. File appropriate legal remedies if needed`,
+        content: data.response,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, aiResponse]);
-    }, 1000);
+    } catch (error: any) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "I apologize, but I'm having trouble connecting to provide legal advice right now. Please try again in a moment.",
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleCopy = (content: string, id: string) => {
@@ -93,12 +118,17 @@ export default function ChatBot() {
 
   const handleMicClick = () => {
     setIsListening(!isListening);
-    // Mock voice input (todo: remove mock functionality - implement real voice-to-text)
-    if (!isListening) {
-      setTimeout(() => {
-        setInput("What are my rights under IPC 420?");
+    // Voice-to-text functionality - works with browser's built-in speech recognition
+    if (!isListening && 'webkitSpeechRecognition' in window) {
+      const recognition = new (window as any).webkitSpeechRecognition();
+      recognition.lang = selectedLanguage === 'hi' ? 'hi-IN' : 'en-IN';
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(transcript);
         setIsListening(false);
-      }, 2000);
+      };
+      recognition.onerror = () => setIsListening(false);
+      recognition.start();
     }
   };
 
@@ -277,7 +307,7 @@ export default function ChatBot() {
                   onKeyPress={(e) => e.key === "Enter" && handleSend()}
                   data-testid="input-chat-message"
                 />
-                <Button onClick={handleSend} data-testid="button-send-message">
+                <Button onClick={handleSend} disabled={isSending} data-testid="button-send-message">
                   <Send className="h-5 w-5" />
                 </Button>
               </div>
@@ -287,4 +317,8 @@ export default function ChatBot() {
       </Card>
     </div>
   );
-}
+});
+
+ChatBot.displayName = "ChatBot";
+
+export default ChatBot;

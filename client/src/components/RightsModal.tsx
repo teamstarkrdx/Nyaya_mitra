@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Search, Scale, Shield, Users, FileText, Gavel, Home, Heart, Book, AlertCircle, Phone, Briefcase, Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Search, Scale, Shield, Users, FileText, Gavel, Home, Heart, Book, AlertCircle, Phone, Briefcase, Star, X } from "lucide-react";
 
 const allRights = [
   { id: 1, title: "Right to Equality", category: "Constitutional", icon: Scale, rating: 5, description: "All persons are equal before law and are entitled to equal protection of laws without discrimination on grounds of religion, race, caste, sex or place of birth." },
@@ -60,7 +61,14 @@ export default function RightsModal({ open, onOpenChange }: RightsModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b sticky top-0 bg-card z-10">
-          <DialogTitle className="text-2xl font-bold">All 30 Legal Rights</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-2xl font-bold">All 30 Legal Rights</DialogTitle>
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon" data-testid="button-close-rights-modal">
+                <X className="h-5 w-5" />
+              </Button>
+            </DialogClose>
+          </div>
         </DialogHeader>
 
         <div className="px-6 py-4 border-b sticky top-[72px] bg-card z-10 space-y-4">

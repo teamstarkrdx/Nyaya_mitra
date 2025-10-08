@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
@@ -13,7 +13,8 @@ import RightsModal from "@/components/RightsModal";
 
 export default function HomePage() {
   const [showRightsModal, setShowRightsModal] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
+  const chatBotRef = useRef<{ openChat: () => void }>(null);
+  const lawSearchRef = useRef<{ focusSearch: () => void }>(null);
 
   const handleNavigate = (section: string) => {
     const element = document.getElementById(section);
@@ -22,9 +23,23 @@ export default function HomePage() {
     } else if (section === "home") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else if (section === "chat") {
-      setChatOpen(true);
+      chatBotRef.current?.openChat();
     } else if (section === "rights") {
       setShowRightsModal(true);
+    }
+  };
+
+  const handleOpenChat = () => {
+    chatBotRef.current?.openChat();
+  };
+
+  const handleCategoryExplore = (categoryId: string) => {
+    const element = document.getElementById("law-search");
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+      setTimeout(() => {
+        lawSearchRef.current?.focusSearch();
+      }, 500);
     }
   };
 
@@ -37,13 +52,13 @@ export default function HomePage() {
       <main className="relative z-10">
         <div id="home">
           <HeroSection
-            onOpenChat={() => setChatOpen(true)}
+            onOpenChat={handleOpenChat}
             onViewRights={() => setShowRightsModal(true)}
           />
         </div>
 
         <div id="guidance">
-          <LegalGuidanceHub onCategoryClick={(id) => console.log('Category:', id)} />
+          <LegalGuidanceHub onCategoryClick={handleCategoryExplore} />
         </div>
 
         <HowWeHelp />
@@ -53,7 +68,7 @@ export default function HomePage() {
         </div>
 
         <div id="law-search">
-          <LawSearch />
+          <LawSearch ref={lawSearchRef} />
         </div>
 
         <div id="contact">
@@ -73,7 +88,7 @@ export default function HomePage() {
         </footer>
       </main>
 
-      <ChatBot />
+      <ChatBot ref={chatBotRef} />
       <RightsModal open={showRightsModal} onOpenChange={setShowRightsModal} />
     </div>
   );

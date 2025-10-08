@@ -1,47 +1,44 @@
-import { useState } from "react";
+import { useState, forwardRef, useImperativeHandle, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Scale, BookOpen } from "lucide-react";
+import { Search, Scale, AlertCircle } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
-interface SearchResult {
-  id: string;
-  type: string;
-  title: string;
-  content: string;
-}
-
-export default function LawSearch() {
+const LawSearch = forwardRef<{ focusSearch: () => void }>((props, ref) => {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [result, setResult] = useState<string | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSearch = () => {
+  useImperativeHandle(ref, () => ({
+    focusSearch: () => {
+      inputRef.current?.focus();
+    }
+  }));
+
+  const handleSearch = async () => {
     if (!query.trim()) return;
 
     setIsSearching(true);
+    setError(null);
+    setResult(null);
 
-    // Mock search results (todo: remove mock functionality - implement AI-powered search)
-    setTimeout(() => {
-      const mockResults: SearchResult[] = [
-        {
-          id: "1",
-          type: query.toLowerCase().includes('ipc') ? "IPC" : query.toLowerCase().includes('article') ? "Constitution" : "Act",
-          title: query.toLowerCase().includes('420') ? "IPC Section 420 - Cheating" : 
-                 query.toLowerCase().includes('article 21') ? "Article 21 - Protection of Life and Personal Liberty" :
-                 "Related Legal Provision",
-          content: "This section/article provides comprehensive legal framework and remedies. The provision ensures protection of citizens' rights under Indian law with specific penalties and procedures outlined."
-        },
-        {
-          id: "2",
-          type: "Case Law",
-          title: "Relevant Supreme Court Judgments",
-          content: "Key precedents and interpretations by the Supreme Court of India that clarify the application and scope of this legal provision."
-        }
-      ];
-      setResults(mockResults);
+    try {
+      const res = await apiRequest("POST", "/api/law-search", { query: query.trim() });
+      const data = await res.json() as { result: string };
+
+      if (data.result && data.result.trim().length > 0) {
+        setResult(data.result);
+      } else {
+        setError("No results found for your query. Please try different keywords.");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to search. Please try again.");
+    } finally {
       setIsSearching(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -60,7 +57,8 @@ export default function LawSearch() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
-              placeholder='Try "IPC 420", "Article 21", "domestic violence"...'
+              ref={inputRef}
+              placeholder='Try "IPC 420", "Article 329", "domestic violence"...'
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && handleSearch()}
@@ -78,46 +76,46 @@ export default function LawSearch() {
           </Button>
         </div>
 
-        {results.length > 0 && (
-          <div className="space-y-4">
-            {results.map((result) => (
-              <Card key={result.id} className="p-6 hover-elevate transition-all overflow-visible" data-testid={`result-${result.id}`}>
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0">
-                    {result.type === "IPC" || result.type === "Constitution" ? (
-                      <Scale className="h-6 w-6 text-white" />
-                    ) : (
-                      <BookOpen className="h-6 w-6 text-white" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-foreground">
-                        {result.title}
-                      </h3>
-                      <span className="text-xs font-medium text-primary px-2 py-1 bg-primary/10 rounded">
-                        {result.type}
-                      </span>
-                    </div>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {result.content}
-                    </p>
-                  </div>
+        {result && (
+          <Card className="p-6 hover-elevate transition-all overflow-visible" data-testid="search-result">
+            <div className="flex gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+                <Scale className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-foreground mb-3">
+                  Search Result
+                </h3>
+                <div className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {result}
                 </div>
-              </Card>
-            ))}
-          </div>
+              </div>
+            </div>
+          </Card>
         )}
 
-        {results.length === 0 && query && !isSearching && (
-          <div className="text-center py-12">
-            <BookOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              Enter your search query above to find relevant legal provisions
-            </p>
-          </div>
+        {error && (
+          <Card className="p-6 border-destructive/20" data-testid="search-error">
+            <div className="flex gap-4">
+              <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="h-6 w-6 text-destructive" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-destructive mb-2">
+                  No Results Found
+                </h3>
+                <p className="text-muted-foreground">
+                  {error}
+                </p>
+              </div>
+            </div>
+          </Card>
         )}
       </div>
     </section>
   );
-}
+});
+
+LawSearch.displayName = "LawSearch";
+
+export default LawSearch;
